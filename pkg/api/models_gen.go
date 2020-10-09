@@ -34,6 +34,10 @@ type HTTPResponseLog struct {
 	Headers      []HTTPHeader `json:"headers"`
 }
 
+type Project struct {
+	Name string `json:"name"`
+}
+
 type HTTPMethod string
 
 const (

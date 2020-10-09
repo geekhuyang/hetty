@@ -27,6 +27,7 @@ import clsx from "clsx";
 
 export enum Page {
   Home,
+  Projects,
   ProxySetup,
   ProxyLogs,
   Sender,

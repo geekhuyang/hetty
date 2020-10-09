@@ -23,9 +23,18 @@ type HttpHeader {
   value: String!
 }
 
+type Project {
+  name: String!
+}
+
 type Query {
   httpRequestLog(id: ID!): HttpRequestLog
   httpRequestLogs: [HttpRequestLog!]!
+  currentProject: Project
+}
+
+type Mutation {
+  openProject(name: String!): Project
 }
 
 enum HttpMethod {

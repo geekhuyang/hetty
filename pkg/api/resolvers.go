@@ -4,23 +4,39 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/99designs/gqlgen/graphql"
+	"github.com/dstotijn/hetty/pkg/proj"
 	"github.com/dstotijn/hetty/pkg/reqlog"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 type Resolver struct {
 	RequestLogService *reqlog.Service
+	ProjectService    *proj.Service
 }
 
 type queryResolver struct{ *Resolver }
+type mutationResolver struct{ *Resolver }
 
-func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
+func (r *Resolver) Query() QueryResolver       { return &queryResolver{r} }
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 func (r *queryResolver) HTTPRequestLogs(ctx context.Context) ([]HTTPRequestLog, error) {
 	opts := reqlog.FindRequestsOptions{OmitOutOfScope: false}
 	reqs, err := r.RequestLogService.FindRequests(ctx, opts)
+	if err == reqlog.ErrNoProject {
+		return nil, &gqlerror.Error{
+			Path:    graphql.GetPath(ctx),
+			Message: "No active project.",
+			Extensions: map[string]interface{}{
+				"code": "no_active_project",
+			},
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("could not query repository for requests: %v", err)
 	}
@@ -115,4 +131,27 @@ func parseRequestLog(req reqlog.Request) (HTTPRequestLog, error) {
 	}
 
 	return log, nil
+}
+
+func (r *mutationResolver) OpenProject(ctx context.Context, name string) (*Project, error) {
+	if name == "" {
+		return nil, errors.New("project name cannot be empty")
+	}
+	p, err := r.ProjectService.Open(name)
+	if err != nil {
+		return nil, fmt.Errorf("could not open project: %v", err)
+	}
+	return &Project{Name: p.Name}, nil
+}
+
+func (r *queryResolver) CurrentProject(ctx context.Context) (*Project, error) {
+	p, err := r.ProjectService.CurrentProject()
+	if err == proj.ErrNoProject {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("could not open project: %v", err)
+	}
+
+	return &Project{Name: p.Name}, nil
 }
